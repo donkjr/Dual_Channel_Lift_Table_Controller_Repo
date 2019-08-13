@@ -11,8 +11,9 @@
   // This code modified from the arduino only code [Joystick_Stepper_Control_2.0]
   // Channel 1= Arduino
   // Channel 2 = smoothie
-  // Stepper driver = ZLM3020
+  // Stepper driver = TB6600
   // 74157 mux http://www.ti.com/lit/ds/symlink/sn54157.pdf
+  // changed the stepper controls to grnd the - signals to match: https://cohesion3d.freshdesk.com/support/solutions/articles/5000744633-wiring-a-z-table-and-rotary-step-by-step-instructions
 
 //DEBUG 
 #define DEBUG       //V1.2 Comment this out for normal compile
@@ -26,13 +27,18 @@
 #define Joy_switch 4  // Pin 4 connected to joystick switch
 
 // Stepper Driver I/O
-#define step_pin 9  // Pin 9 connected to PUL+ pin through the mux to stepper driver
-#define dir_pin 8   // Pin 8 connected to DIR+ pin through the mux to the stepper driver
+// The + stepper controls are connected to 5v. This supplies the internal optocouplers with 5V.
+// The - stepper controls are connected to the arduino. This means that stepper signals are LOW true.
+
+#define step_pin 9  // Pin 9 connected to PUL- pin through the mux to stepper driver
+#define dir_pin 8   // Pin 8 connected to DIR- pin through the mux to the stepper driver
+#define stepper_en 12     // Pin 12 connected through mux to enable pin on stepper driver
+
+// Mux control
 #define chan_select 10      //Pin 10 connected to the select pin on the mux [74157]. 
                             //Low selects Arduino stepper controls
                             //High selects smoothie stepper controls
-#define stepper_en 12     // Pin 12 connected through mux to enable pin on stepper driver
-
+//Debug
 #define test_pin 11       // used for scope triggering
 
 //Limit Switches
@@ -65,7 +71,7 @@ void setup()
    pinMode(Limit01, INPUT_PULLUP);
    pinMode(Limit02, INPUT_PULLUP);
    
-   digitalWrite(stepper_en, HIGH);  // enable the stepper driver
+   digitalWrite(stepper_en, LOW);  // enable the stepper driver
    //digitalWrite(chan_select, HIGH); //select the smoothie channel
 
    digitalWrite(chan_select, LOW);  //enable the arduino's stepper signals
@@ -147,7 +153,7 @@ void loop()
       Serial.println("Lift at top");
       for (int i = 0; i <= 10; i++)
         {//blink the fast led as a warning
-         digitalWrite (fastLed, num = num^=1);
+         digitalWrite (fastLed, num = num ^= 1);
          delay(500);
         }
       restore_LED();     // put the led back to it previous state  
@@ -157,9 +163,9 @@ void loop()
         //digitalWrite(test_pin,HIGH);
         //digitalWrite(chan_select, LOW);// Enable the Arduino channel
         digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
-        digitalWrite(step_pin, HIGH);
-        delayMicroseconds(step_speed);
         digitalWrite(step_pin, LOW);
+        delayMicroseconds(step_speed);
+        digitalWrite(step_pin, HIGH);
         delayMicroseconds(step_speed);
         //digitalWrite(chan_select, HIGH); //reset the channel to smoothie
        // digitalWrite(test_pin, LOW);
@@ -186,9 +192,9 @@ void loop()
         Serial.println(stickPosition);
 */     
         digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
-        digitalWrite(step_pin, HIGH);
-        delayMicroseconds(step_speed);
         digitalWrite(step_pin, LOW);
+        delayMicroseconds(step_speed);
+        digitalWrite(step_pin, HIGH);
         delayMicroseconds(step_speed);
       }      
     }
@@ -274,10 +280,11 @@ void test_Mode()
 //Test the leds
 void test_Leds()
 {
+ bool num=1;
  //blink the top led
   for(int i=1; i<=10;i++)
     {
-      digitalWrite (fastLed, num = num^=1);
+      digitalWrite (fastLed, num = num^=1); //toggle num with XOR
       delay(500);
     }
   // blink the middle led
