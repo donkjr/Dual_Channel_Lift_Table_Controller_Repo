@@ -109,10 +109,10 @@ void setup()
 
 void loop() 
 {
-  digitalWrite(test_pin,HIGH);
+  digitalWrite(test_pin,HIGH); // for measuring the loop time
   
   if(testMode)
-  {
+  {// check if test mode was set in the startup
     test_Mode();        // go and run tests first
   }
   if (!digitalRead(Joy_switch)) 
@@ -120,8 +120,8 @@ void loop()
       delay(500);  // delay for deboucing
       switch (step_speed) 
       {  // check current value of step_speed and change it
-        case 1: //Fast speed
-          step_speed=30;  // If fast speed go to slow speed
+        case 10: //Fast speed
+          step_speed=1;  // If fast speed go to slow speed
           #ifdef DEBUG //V1.2
             Serial.println("-------Slow Speed-------");
           #endif
@@ -129,8 +129,8 @@ void loop()
           digitalWrite(fastLed,LOW);
           digitalWrite(slowLed, HIGH);
         break;
-        case 8: //med speed
-          step_speed=1;  // if med speed go to fast speed
+        case 5: //med speed
+          step_speed=10;  // if med speed go to fast speed
           #ifdef DEBUG
             Serial.println("-------Fast Speed-------");
           #endif
@@ -138,8 +138,8 @@ void loop()
           digitalWrite(medLed, LOW);
           digitalWrite(fastLed,HIGH);
         break;
-        case 30:  //slow speed
-          step_speed=8;  // if slow speed go to medium speed
+        case 1:  //slow speed
+          step_speed=1;  // if slow speed go to medium speed
           #ifdef DEBUG
             Serial.println("-------Medium Speed------");
           #endif
@@ -168,14 +168,14 @@ void loop()
         //digitalWrite(test_pin,HIGH);
         //digitalWrite(chan_select, LOW);// Enable the Arduino channel
         digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
-        stepTen();
+        stepperDrive(step_speed);
         /*
         digitalWrite(step_pin, LOW);
         delayMicroseconds(step_speed);
         digitalWrite(step_pin, HIGH);
         delayMicroseconds(step_speed);
         */
-        ++stepCounter;                //increment step counter
+        //++stepCounter;                //increment step counter
        //digitalWrite(chan_select, HIGH); //reset the channel to smoothie
        // digitalWrite(test_pin, LOW);
       }        
@@ -195,17 +195,16 @@ void loop()
         }  
       else 
       {  //  if limit switch is not activated, move motor counter clockwise     
-/*
-        Serial.print("Moving Down @");
-        Serial.println(stickPosition);
-*/     
+    
         digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
+        stepperDrive(step_speed);
+       /* 
         digitalWrite(step_pin, LOW);
         delayMicroseconds(step_speed);
         digitalWrite(step_pin, HIGH);
         delayMicroseconds(step_speed);
         --stepCounter;                //decrement step counter
-       
+       */
       }      
     }
   digitalWrite(test_pin, LOW);
@@ -223,17 +222,17 @@ void restore_LED()
   //Serial.println (step_speed); 
   switch (step_speed) 
       {  // check current value of step_speed update the LED's
-        case 1:
+        case 10:
          digitalWrite(slowLed,LOW);
          digitalWrite(medLed,LOW);
          digitalWrite(fastLed,HIGH);
         break;
-        case 8:
+        case 5:
          digitalWrite(slowLed,LOW);
          digitalWrite(medLed,HIGH);
          digitalWrite(fastLed,LOW);
         break;
-        case 30:
+        case 1:
           digitalWrite(fastLed, LOW);
           digitalWrite(slowLed, HIGH);
           digitalWrite(medLed,LOW); 
@@ -242,18 +241,18 @@ void restore_LED()
       return;
 }
 
-/// TEST FOR SPEED
+/// stepIncrement()
 
-void stepTen()
-{
- for (int z =0; z <= 10; z++)
- { 
-  digitalWrite(step_pin, LOW);
-  delayMicroseconds(step_speed);
-  digitalWrite(step_pin, HIGH);
-  delayMicroseconds(step_speed);
- }
-}
+void stepperDrive(int microStepIncrement)
+  {         
+     for (int z =0; z <= microStepIncrement; z++)
+       { 
+        digitalWrite(step_pin, LOW);
+        delayMicroseconds(step_speed);
+        digitalWrite(step_pin, HIGH);
+        delayMicroseconds(step_speed);
+       }
+  }
 
 
 //////////////////Test Mode /////////////////
