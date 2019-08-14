@@ -14,6 +14,10 @@
   // Stepper driver = TB6600
   // 74157 mux http://www.ti.com/lit/ds/symlink/sn54157.pdf
   // changed the stepper controls to grnd the - signals to match: https://cohesion3d.freshdesk.com/support/solutions/articles/5000744633-wiring-a-z-table-and-rotary-step-by-step-instructions
+// V1.2
+  // -Enable on the stepper driver needs to be HIGH to allow the stepper controller to work.
+  // all functions working from the arduino channel.
+  // only the arduino channel is tested.
 
 //DEBUG 
 #define DEBUG       //V1.2 Comment this out for normal compile
@@ -71,7 +75,7 @@ void setup()
    pinMode(Limit01, INPUT_PULLUP);
    pinMode(Limit02, INPUT_PULLUP);
    
-   digitalWrite(stepper_en, LOW);  // enable the stepper driver
+   digitalWrite(stepper_en, HIGH);  // enable the stepper driver
    //digitalWrite(chan_select, HIGH); //select the smoothie channel
 
    digitalWrite(chan_select, LOW);  //enable the arduino's stepper signals
@@ -162,7 +166,7 @@ void loop()
       {  //  if limit switch is not activated, move motor clockwise  
         //digitalWrite(test_pin,HIGH);
         //digitalWrite(chan_select, LOW);// Enable the Arduino channel
-        digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
+        digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
         digitalWrite(step_pin, LOW);
         delayMicroseconds(step_speed);
         digitalWrite(step_pin, HIGH);
@@ -191,7 +195,7 @@ void loop()
         Serial.print("Moving Down @");
         Serial.println(stickPosition);
 */     
-        digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
+        digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
         digitalWrite(step_pin, LOW);
         delayMicroseconds(step_speed);
         digitalWrite(step_pin, HIGH);
