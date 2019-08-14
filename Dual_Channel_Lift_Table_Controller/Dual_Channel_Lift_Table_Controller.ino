@@ -70,20 +70,20 @@
 
 // stepper variables
 
-//Speed increment constants
+//Speed increment constants the # of microsteps per call to stepperDrive
 #define HIGHSPEED 10 // high speed 
 #define MEDSPEED 5 // med speed
 #define LOWSPEED 1 // low speed
 
 int step_speed = 1;  // step speeds are 10, 5, 1 whereas 10 is high and 1 is low
                       // these values set the number of steps that the driver will take each time the joystick is seen above its threshold postion 
-
+int stepPulse = 10; // pulse width of the stepper PUL input
 int laststepCounter = 0; //keeps track of when the counter changes
 int stepCounter = 0;  // step counter
 
 int num;               // temp variable for blinking LED
 int stickPosition;    // the Y joystick value
-
+float mmPosition;      // table postion in mm
 //Testing
 bool testMode = false; // test mode 
 
@@ -121,6 +121,7 @@ void setup()
     testMode=true;            // if switch held during reset set test mode
     Serial.println("Test mode initiated");
   }  
+  homeTable();
 }
 
 void loop() 
@@ -137,7 +138,7 @@ void loop()
       switch (step_speed) 
       {  // check current value of step_speed and change it
         case HIGHSPEED: //Fast speed
-          step_speed=1;  // If fast speed go to slow speed
+          step_speed=LOWSPEED;  // If fast speed go to slow speed
           #ifdef DEBUG //V1.2
             Serial.println("-------Slow Speed-------");
           #endif
@@ -146,7 +147,7 @@ void loop()
           digitalWrite(slowLed, HIGH);
         break;
         case MEDSPEED: //med speed
-          step_speed=10;  // if med speed go to fast speed
+          step_speed=HIGHSPEED;  // if med speed go to fast speed
           #ifdef DEBUG
             Serial.println("-------Fast Speed-------");
           #endif
@@ -155,7 +156,7 @@ void loop()
           digitalWrite(fastLed,HIGH);
         break;
         case LOWSPEED:  //slow speed
-          step_speed=5;  // if slow speed go to medium speed
+          step_speed=MEDSPEED;  // if slow speed go to medium speed
           #ifdef DEBUG
             Serial.println("-------Medium Speed------");
           #endif
@@ -185,8 +186,12 @@ void loop()
         //digitalWrite(chan_select, LOW);// Enable the Arduino channel
         digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
         stepCounter = stepCounter + stepperDrive(step_speed); //go drive the stepper and update the stepcounter
-        Serial.print("Position = ");
-        Serial.println(stepCounter);
+        Serial.print("Count = ");
+        Serial.print(stepCounter);
+        Serial.print("\t");
+        mmPosition = -1* (stepCounter/3200);
+        Serial.print(" Position (mm) = ");
+        Serial.println (mmPosition);
        //digitalWrite(chan_select, HIGH); //reset the channel to smoothie
        // digitalWrite(test_pin, LOW);
       }        
@@ -209,8 +214,12 @@ void loop()
     
         digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
         stepCounter = stepCounter - stepperDrive(step_speed); // go drive the stepper and update the stepcounter 
-        Serial.print("Position = ");
-        Serial.println(stepCounter);     
+        Serial.print("Count = ");
+        Serial.print(stepCounter);
+        Serial.print("\t");
+        mmPosition = (-1* stepCounter)/3200;
+        Serial.print(" Position (mm) = ");
+        Serial.println (mmPosition);   
       }      
     }
   digitalWrite(test_pin, LOW);
@@ -234,15 +243,31 @@ int stepperDrive(int microStepIncrement)
    for (int z =1; z <= microStepIncrement; z++)
      { 
       digitalWrite(step_pin, LOW);
-      delayMicroseconds(step_speed);
+      delayMicroseconds(stepPulse);
       digitalWrite(step_pin, HIGH);
-      delayMicroseconds(step_speed);
+      delayMicroseconds(stepPulse); // is this needed
      ++microStepCnt;                        //keep track of microsteps
      }
     //Serial.println(microStepCnt);
     return (microStepCnt);
   }
 
+/// ------------------HOME------
+void homeTable()
+  {
+  digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
+  while (digitalRead(Limit01))
+     { // step until the upper limit is reached (Limit = 0)
+      digitalWrite(step_pin, LOW);
+      delayMicroseconds(stepPulse);
+      digitalWrite(step_pin, HIGH);
+      delayMicroseconds(stepPulse); // is this needed??? 
+     }
+    stepCounter = 0; // reset the position counter
+    Serial.println();
+    Serial.println("Table @ Home Position");
+  return;
+  }
 
 
 
