@@ -5,7 +5,19 @@
 // With this code and the corresponding hardware two controllers can control one lift table stepper driver.
 // this allows the table to be controlled without having the smoothie connected to a PC. 
 // when the joystick is activated the mux switches to Arduino control
-// when the joystic is not activated the stepper controls are from the smoothie. 
+// when the joystic is not activated the stepper controls are from the smoothie.
+// the tables threaded lift rod is M6 x 1.0 mm pitch. This means that one revolution is a 1mm change in height. 
+// Switch settings on TB660 driver
+// 16 micro steps per step
+// 360 degrees / 1.8 degrees/step = 200 steps/rev
+// 200 steps/rev * 16 microsteps/step = 3200 micro steps/rev
+// SW1=OFF
+// SW2=OFF
+// SW3=ON
+// SW4=ON
+// SW5=OFF
+// SW6=OFF
+
 //V1.0  
   //tested virgin two channel control system system
   // This code modified from the arduino only code [Joystick_Stepper_Control_2.0]
@@ -21,21 +33,14 @@
   // changed num = num^=1 to num = num^1 to elliminate compiler warning.
   // after setting the steppers for micro steps the loop time is too long.
   // necessitates driving the stepper with fast subroutines. Plan to run 1 step, 5 steps, 10 steps increments to solve this problem.
+//V3.2  
+  // for speed redesigned the way the stepper is driven.  
+  // step_speed now acts as a multiplier. The stepperIncrement() uses this value to control how many microsteps the controller is given for each joystick move. 
 
-// Switch settings on TB660 driver
-// 16 micro steps per step
-// 360 degrees / 1.8 degrees/step = 200 steps/rev
-// 200 steps/rev * 16 microsteps/step = 3200 steps/rev
-// SW1=OFF
-// SW2=OFF
-// SW3=ON
-// SW4=ON
-// SW5=OFF
-// SW6=OFF
 
 //DEBUG 
 #define DEBUG       //V1.2 Comment this out for normal compile
-#define VERSION 3.1 //
+#define VERSION 3.2 //
 // CONTROL PANEL I/O
 #define slowLed 5   // Pin 5 connected to slow LED on panel
 #define medLed 6  // Pin 6 connected to med LED on panel
@@ -45,7 +50,7 @@
 #define Joy_switch 4  // Pin 4 connected to joystick switch
 
 // Stepper Driver I/O
-// The + stepper controls are connected to 5v. This supplies the internal optocouplers with 5V.
+// The + stepper controls are connected to 5v. This supplies the internal optocouplers with a 5V source.
 // The - stepper controls are connected to the arduino. This means that stepper signals are LOW true.
 
 #define step_pin 9  // Pin 9 connected to PUL- pin through the mux to stepper driver
@@ -63,12 +68,23 @@
 #define Limit01 2  // Pin 2 connected to UP Limit switch 
 #define Limit02 3  // Pin 3 connected to DWN Limit switch
 
-int step_speed = 1;  // Speed of Stepper motor (higher = slower)
+// stepper variables
+
+//Speed increment constants
+#define HIGHSPEED 10 // high speed 
+#define MEDSPEED 5 // med speed
+#define LOWSPEED 1 // low speed
+
+int step_speed = 1;  // step speeds are 10, 5, 1 whereas 10 is high and 1 is low
+                      // these values set the number of steps that the driver will take each time the joystick is seen above its threshold postion 
+
+int laststepCounter = 0; //keeps track of when the counter changes
+int stepCounter = 0;  // step counter
+
 int num;               // temp variable for blinking LED
 int stickPosition;    // the Y joystick value
-int stepCounter = 0;  // step counter
-int laststepCounter = 0; //keeps track of when the counter changes
 
+//Testing
 bool testMode = false; // test mode 
 
 void setup() 
@@ -120,7 +136,7 @@ void loop()
       delay(500);  // delay for deboucing
       switch (step_speed) 
       {  // check current value of step_speed and change it
-        case 10: //Fast speed
+        case HIGHSPEED: //Fast speed
           step_speed=1;  // If fast speed go to slow speed
           #ifdef DEBUG //V1.2
             Serial.println("-------Slow Speed-------");
@@ -129,7 +145,7 @@ void loop()
           digitalWrite(fastLed,LOW);
           digitalWrite(slowLed, HIGH);
         break;
-        case 5: //med speed
+        case MEDSPEED: //med speed
           step_speed=10;  // if med speed go to fast speed
           #ifdef DEBUG
             Serial.println("-------Fast Speed-------");
@@ -138,8 +154,8 @@ void loop()
           digitalWrite(medLed, LOW);
           digitalWrite(fastLed,HIGH);
         break;
-        case 1:  //slow speed
-          step_speed=1;  // if slow speed go to medium speed
+        case LOWSPEED:  //slow speed
+          step_speed=5;  // if slow speed go to medium speed
           #ifdef DEBUG
             Serial.println("-------Medium Speed------");
           #endif
@@ -168,14 +184,9 @@ void loop()
         //digitalWrite(test_pin,HIGH);
         //digitalWrite(chan_select, LOW);// Enable the Arduino channel
         digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
-        stepperDrive(step_speed);
-        /*
-        digitalWrite(step_pin, LOW);
-        delayMicroseconds(step_speed);
-        digitalWrite(step_pin, HIGH);
-        delayMicroseconds(step_speed);
-        */
-        //++stepCounter;                //increment step counter
+        stepCounter = stepCounter + stepperDrive(step_speed); //go drive the stepper and update the stepcounter
+        Serial.print("Position = ");
+        Serial.println(stepCounter);
        //digitalWrite(chan_select, HIGH); //reset the channel to smoothie
        // digitalWrite(test_pin, LOW);
       }        
@@ -197,20 +208,45 @@ void loop()
       {  //  if limit switch is not activated, move motor counter clockwise     
     
         digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
-        stepperDrive(step_speed);
-       /* 
-        digitalWrite(step_pin, LOW);
-        delayMicroseconds(step_speed);
-        digitalWrite(step_pin, HIGH);
-        delayMicroseconds(step_speed);
-        --stepCounter;                //decrement step counter
-       */
+        stepCounter = stepCounter - stepperDrive(step_speed); // go drive the stepper and update the stepcounter 
+        Serial.print("Position = ");
+        Serial.println(stepCounter);     
       }      
     }
   digitalWrite(test_pin, LOW);
   delayMicroseconds(20);
   digitalWrite(test_pin, HIGH);
 }//end Loop
+
+
+
+// ============================ FUNCTIONS ===========================
+
+///------------------ stepperDrive()-------------------
+// Drive the stepper in increments of microStepIncrement before it returns.
+//Parameters:
+// microStepIncrements = # of microsteps to take before returning
+// Return:
+// microStepCnt = # of micro steps the motor was moved
+int stepperDrive(int microStepIncrement)
+  {
+   int microStepCnt =0;  // initialize the microstep counter         
+   for (int z =1; z <= microStepIncrement; z++)
+     { 
+      digitalWrite(step_pin, LOW);
+      delayMicroseconds(step_speed);
+      digitalWrite(step_pin, HIGH);
+      delayMicroseconds(step_speed);
+     ++microStepCnt;                        //keep track of microsteps
+     }
+    //Serial.println(microStepCnt);
+    return (microStepCnt);
+  }
+
+
+
+
+
 
 // .....................
 // Used to put the panel LED's back to their previous state ...
@@ -241,18 +277,6 @@ void restore_LED()
       return;
 }
 
-/// stepIncrement()
-
-void stepperDrive(int microStepIncrement)
-  {         
-     for (int z =0; z <= microStepIncrement; z++)
-       { 
-        digitalWrite(step_pin, LOW);
-        delayMicroseconds(step_speed);
-        digitalWrite(step_pin, HIGH);
-        delayMicroseconds(step_speed);
-       }
-  }
 
 
 //////////////////Test Mode /////////////////
