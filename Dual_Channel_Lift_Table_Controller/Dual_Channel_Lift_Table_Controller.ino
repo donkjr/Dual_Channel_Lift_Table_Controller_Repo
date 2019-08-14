@@ -18,10 +18,11 @@
   // -Enable on the stepper driver needs to be HIGH to allow the stepper controller to work.
   // all functions working from the arduino channel.
   // only the arduino channel is tested.
+  // changed num = num^=1 to num = num^1 to elliminate compiler warning.
 
 //DEBUG 
 #define DEBUG       //V1.2 Comment this out for normal compile
-
+#define VERSION 3.1 //
 // CONTROL PANEL I/O
 #define slowLed 5   // Pin 5 connected to slow LED on panel
 #define medLed 6  // Pin 6 connected to med LED on panel
@@ -79,24 +80,28 @@ void setup()
    //digitalWrite(chan_select, HIGH); //select the smoothie channel
 
    digitalWrite(chan_select, LOW);  //enable the arduino's stepper signals
+   digitalWrite(chan_select, LOW);  //enable the arduino's stepper signals
    delay(5);  // Wait for Driver to wake up
    digitalWrite(slowLed,HIGH);
    digitalWrite(medLed, LOW);
    digitalWrite(fastLed,LOW);
    
-/* Configure settings on TB660 driver
-// SW1=ON
-// SW2=ON
-// SW3=OFF
-// SW4=OFF
-// SW5=ON
+// Configure switch settings on TB660 driver
+// 16 micro steps per step
+// 360 degrees / 1.8 degrees/step = 200 steps/rev
+// 200 steps/rev * 16 microsteps/step = 3200 steps/rev
+// SW1=OFF
+// SW2=OFF
+// SW3=ON
+// SW4=ON
+// SW5=OFF
 // SW6=OFF
 
-*/
+
 
  
- Serial.println("K40 Dual Channel Lift Controller V1.0");
-  
+ Serial.print("K40 Dual Channel Lift Controller V");
+ Serial.print(VERSION); 
   if (!digitalRead(Joy_switch)) 
   {
     testMode=true;            // if switch held during reset set test mode
@@ -149,7 +154,7 @@ void loop()
       break;
     }
   }    
-  stickPosition = analogRead(Y_pin);  
+  stickPosition = analogRead(Y_pin);  //read the joystick pot  
   if (analogRead(Y_pin) > 712) 
   {  //  If joystick is moved UP
     if (!digitalRead(Limit01)) 
@@ -157,7 +162,7 @@ void loop()
       Serial.println("Lift at top");
       for (int i = 0; i <= 10; i++)
         {//blink the fast led as a warning
-         digitalWrite (fastLed, num = num ^= 1);
+         digitalWrite (fastLed, num = num ^1);
          delay(500);
         }
       restore_LED();     // put the led back to it previous state  
@@ -184,7 +189,7 @@ void loop()
           Serial.println("Lift at bottom");  
           for (int i = 0; i <= 10; i++)
             {//blink the slow led as a warning
-              digitalWrite (slowLed, num = num^=1);
+              digitalWrite (slowLed, num = num^1);
               delay(500);
             } 
           restore_LED();     // put the led back to it previous state  
@@ -211,7 +216,7 @@ digitalWrite(test_pin, LOW);
 // ... with a joystick move in the direction of the closed endstop 
 void restore_LED()
 {
-  Serial.println (step_speed); 
+  //Serial.println (step_speed); 
   switch (step_speed) 
       {  // check current value of step_speed update the LED's
         case 300:
@@ -288,19 +293,19 @@ void test_Leds()
  //blink the top led
   for(int i=1; i<=10;i++)
     {
-      digitalWrite (fastLed, num = num^=1); //toggle num with XOR
+      digitalWrite (fastLed, num = num^1); //toggle num with XOR
       delay(500);
     }
   // blink the middle led
   for(int i=1; i<=10;i++)
     {
-      digitalWrite (medLed, num = num^=1);
+      digitalWrite (medLed, num = num^1);
       delay(500);
     }
   //blink the bottom led
   for(int i=1; i<=10;i++)
     {
-      digitalWrite (slowLed, num = num^=1);
+      digitalWrite (slowLed, num = num^1);
       delay(500); 
     }
   return;
@@ -317,7 +322,7 @@ void test_for_UpSw()
   while(!digitalRead(Limit01)) 
       {
       //blink the fast led while holding switch
-        digitalWrite (fastLed, num = num^=1);
+        digitalWrite (fastLed, num = num^1);
         delay(500);
       }
   digitalWrite(fastLed,LOW);
@@ -334,7 +339,7 @@ void test_for_DwnSw()
   while(!digitalRead(Limit02)) 
     {
     //blink the slow led while holding switch
-      digitalWrite(slowLed, num = num^=1);
+      digitalWrite(slowLed, num = num^1);
       delay(500);
     }
   digitalWrite(slowLed,LOW);
