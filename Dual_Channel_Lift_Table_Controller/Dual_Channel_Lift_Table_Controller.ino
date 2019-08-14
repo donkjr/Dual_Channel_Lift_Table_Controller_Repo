@@ -19,6 +19,19 @@
   // all functions working from the arduino channel.
   // only the arduino channel is tested.
   // changed num = num^=1 to num = num^1 to elliminate compiler warning.
+  // after setting the steppers for micro steps the loop time is too long.
+  // necessitates driving the stepper with fast subroutines. Plan to run 1 step, 5 steps, 10 steps increments to solve this problem.
+
+// Switch settings on TB660 driver
+// 16 micro steps per step
+// 360 degrees / 1.8 degrees/step = 200 steps/rev
+// 200 steps/rev * 16 microsteps/step = 3200 steps/rev
+// SW1=OFF
+// SW2=OFF
+// SW3=ON
+// SW4=ON
+// SW5=OFF
+// SW6=OFF
 
 //DEBUG 
 #define DEBUG       //V1.2 Comment this out for normal compile
@@ -50,16 +63,18 @@
 #define Limit01 2  // Pin 2 connected to UP Limit switch 
 #define Limit02 3  // Pin 3 connected to DWN Limit switch
 
-int step_speed = 3000;  // Speed of Stepper motor (higher = slower)
+int step_speed = 1;  // Speed of Stepper motor (higher = slower)
 int num;               // temp variable for blinking LED
 int stickPosition;    // the Y joystick value
+int stepCounter = 0;  // step counter
+int laststepCounter = 0; //keeps track of when the counter changes
 
 bool testMode = false; // test mode 
 
 void setup() 
 {
  #ifdef DEBUG
-  Serial.begin(19200);   //V1.0
+  Serial.begin(57600);   //V1.0
  #endif
 // Stepper Driver Controls
    pinMode(dir_pin, OUTPUT);
@@ -75,39 +90,21 @@ void setup()
 //Limit Switches   
    pinMode(Limit01, INPUT_PULLUP);
    pinMode(Limit02, INPUT_PULLUP);
-   
+// Stepper Control  
    digitalWrite(stepper_en, HIGH);  // enable the stepper driver
    //digitalWrite(chan_select, HIGH); //select the smoothie channel
-
-   digitalWrite(chan_select, LOW);  //enable the arduino's stepper signals
    digitalWrite(chan_select, LOW);  //enable the arduino's stepper signals
    delay(5);  // Wait for Driver to wake up
    digitalWrite(slowLed,HIGH);
    digitalWrite(medLed, LOW);
-   digitalWrite(fastLed,LOW);
-   
-// Configure switch settings on TB660 driver
-// 16 micro steps per step
-// 360 degrees / 1.8 degrees/step = 200 steps/rev
-// 200 steps/rev * 16 microsteps/step = 3200 steps/rev
-// SW1=OFF
-// SW2=OFF
-// SW3=ON
-// SW4=ON
-// SW5=OFF
-// SW6=OFF
-
-
-
- 
- Serial.print("K40 Dual Channel Lift Controller V");
- Serial.print(VERSION); 
+   digitalWrite(fastLed,LOW);  
+   Serial.print("K40 Dual Channel Lift Controller V");
+   Serial.print(VERSION); 
   if (!digitalRead(Joy_switch)) 
   {
     testMode=true;            // if switch held during reset set test mode
     Serial.println("Test mode initiated");
-  }
-  
+  }  
 }
 
 void loop() 
@@ -118,45 +115,44 @@ void loop()
   {
     test_Mode();        // go and run tests first
   }
-  //Serial.println(step_speed);
-  digitalWrite(step_pin,HIGH);
   if (!digitalRead(Joy_switch)) 
     {  //  If Joystick switch is clicked
       delay(500);  // delay for deboucing
-    switch (step_speed) 
-    {  // check current value of step_speed and change it
-      case 300:
-        step_speed=3000;  // If fast speed go to slow speed
-        #ifdef DEBUG //V1.2
-          Serial.println("-------Slow Speed-------");
-        #endif
-        digitalWrite(medLed, LOW);
-        digitalWrite(fastLed,LOW);
-        digitalWrite(slowLed, HIGH);
-      break;
-      case 800:
-        step_speed=300;  // if med speed go to fast speed
-        #ifdef DEBUG
-          Serial.println("-------Fast Speed-------");
-        #endif
-        digitalWrite(slowLed, LOW);
-        digitalWrite(medLed, LOW);
-        digitalWrite(fastLed,HIGH);
-      break;
-      case 3000:
-        step_speed=800;  // if slow speed go to medium speed
-        #ifdef DEBUG
-          Serial.println("-------Medium Speed------");
-        #endif
-        digitalWrite(slowLed, LOW);
-        digitalWrite(fastLed,LOW);
-        digitalWrite(medLed, HIGH);
-      break;
-    }
-  }    
+      switch (step_speed) 
+      {  // check current value of step_speed and change it
+        case 1: //Fast speed
+          step_speed=30;  // If fast speed go to slow speed
+          #ifdef DEBUG //V1.2
+            Serial.println("-------Slow Speed-------");
+          #endif
+          digitalWrite(medLed, LOW);
+          digitalWrite(fastLed,LOW);
+          digitalWrite(slowLed, HIGH);
+        break;
+        case 8: //med speed
+          step_speed=1;  // if med speed go to fast speed
+          #ifdef DEBUG
+            Serial.println("-------Fast Speed-------");
+          #endif
+          digitalWrite(slowLed, LOW);
+          digitalWrite(medLed, LOW);
+          digitalWrite(fastLed,HIGH);
+        break;
+        case 30:  //slow speed
+          step_speed=8;  // if slow speed go to medium speed
+          #ifdef DEBUG
+            Serial.println("-------Medium Speed------");
+          #endif
+          digitalWrite(slowLed, LOW);
+          digitalWrite(fastLed,LOW);
+          digitalWrite(medLed, HIGH);
+        break;
+      }
+    }    
+ // CHECK IF JOYSTICK IS PUSHED UP 
   stickPosition = analogRead(Y_pin);  //read the joystick pot  
   if (analogRead(Y_pin) > 712) 
-  {  //  If joystick is moved UP
+    {  //  If joystick is moved UP
     if (!digitalRead(Limit01)) 
       {  // check if up limit switch is activated
       Serial.println("Lift at top");
@@ -166,22 +162,25 @@ void loop()
          delay(500);
         }
       restore_LED();     // put the led back to it previous state  
-    }
+      }
     else 
       {  //  if limit switch is not activated, move motor clockwise  
         //digitalWrite(test_pin,HIGH);
         //digitalWrite(chan_select, LOW);// Enable the Arduino channel
         digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
+        stepTen();
+        /*
         digitalWrite(step_pin, LOW);
         delayMicroseconds(step_speed);
         digitalWrite(step_pin, HIGH);
         delayMicroseconds(step_speed);
-        //digitalWrite(chan_select, HIGH); //reset the channel to smoothie
+        */
+        ++stepCounter;                //increment step counter
+       //digitalWrite(chan_select, HIGH); //reset the channel to smoothie
        // digitalWrite(test_pin, LOW);
-      }      
-   
+      }        
   }
-  
+// CHECK TO SEE IF THE JOYSTICK IS PUSHED DOWN  
     if (analogRead(Y_pin) < 312) 
     {  // If joystick is moved DOWN
       if (!digitalRead(Limit02)) 
@@ -205,37 +204,55 @@ void loop()
         delayMicroseconds(step_speed);
         digitalWrite(step_pin, HIGH);
         delayMicroseconds(step_speed);
+        --stepCounter;                //decrement step counter
+       
       }      
     }
-digitalWrite(test_pin, LOW);
+  digitalWrite(test_pin, LOW);
+  delayMicroseconds(20);
+  digitalWrite(test_pin, HIGH);
 }//end Loop
 
 // .....................
 // Used to put the panel LED's back to their previous state ...
 // ... after blinking them on achieveing the top or bottom
 // ... with a joystick move in the direction of the closed endstop 
+
 void restore_LED()
 {
   //Serial.println (step_speed); 
   switch (step_speed) 
       {  // check current value of step_speed update the LED's
-        case 300:
+        case 1:
          digitalWrite(slowLed,LOW);
          digitalWrite(medLed,LOW);
          digitalWrite(fastLed,HIGH);
         break;
-        case 800:
+        case 8:
          digitalWrite(slowLed,LOW);
          digitalWrite(medLed,HIGH);
          digitalWrite(fastLed,LOW);
         break;
-        case 3000:
+        case 30:
           digitalWrite(fastLed, LOW);
           digitalWrite(slowLed, HIGH);
           digitalWrite(medLed,LOW); 
         break;
       }
       return;
+}
+
+/// TEST FOR SPEED
+
+void stepTen()
+{
+ for (int z =0; z <= 10; z++)
+ { 
+  digitalWrite(step_pin, LOW);
+  delayMicroseconds(step_speed);
+  digitalWrite(step_pin, HIGH);
+  delayMicroseconds(step_speed);
+ }
 }
 
 
