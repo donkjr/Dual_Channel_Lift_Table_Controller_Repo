@@ -74,10 +74,16 @@
 #define HIGHSPEED 10 // high speed 
 #define MEDSPEED 5 // med speed
 #define LOWSPEED 1 // low speed
+#define HIGHDEADTIME 100 // off time (usec) for high speed
+#define MEDDEADTIME 1000 // off time (usec) for med speed
+#define LOWDEADTIME 10000 // off time (usec) for slow speed
+
 
 int step_speed = 1;  // step speeds are 10, 5, 1 whereas 10 is high and 1 is low
                       // these values set the number of steps that the driver will take each time the joystick is seen above its threshold postion 
-int stepPulse = 10; // pulse width of the stepper PUL input
+int stepPulse = 10; // low pulse width of the stepper PUL input
+int stepLowTime = 10; //low time (usec) for the -PUL on stepper driver
+int stepHighTime = LOWDEADTIME; 
 int laststepCounter = 0; //keeps track of when the counter changes
 int stepCounter = 0;  // step counter
 
@@ -138,7 +144,8 @@ void loop()
       switch (step_speed) 
       {  // check current value of step_speed and change it
         case HIGHSPEED: //Fast speed
-          step_speed=LOWSPEED;  // If fast speed go to slow speed
+          stepHighTime = HIGHDEADTIME;
+          //step_speed=LOWSPEED;  // If fast speed go to slow speed
           #ifdef DEBUG //V1.2
             Serial.println("-------Slow Speed-------");
           #endif
@@ -147,7 +154,8 @@ void loop()
           digitalWrite(slowLed, HIGH);
         break;
         case MEDSPEED: //med speed
-          step_speed=HIGHSPEED;  // if med speed go to fast speed
+          stepHighTime = HIGHDEADTIME;
+          //step_speed=HIGHSPEED;  // if med speed go to fast speed
           #ifdef DEBUG
             Serial.println("-------Fast Speed-------");
           #endif
@@ -156,7 +164,8 @@ void loop()
           digitalWrite(fastLed,HIGH);
         break;
         case LOWSPEED:  //slow speed
-          step_speed=MEDSPEED;  // if slow speed go to medium speed
+          stepHighTime = MEDDEADTIME; 
+         //step_speed=MEDSPEED;  // if slow speed go to medium speed
           #ifdef DEBUG
             Serial.println("-------Medium Speed------");
           #endif
@@ -185,7 +194,7 @@ void loop()
         //digitalWrite(test_pin,HIGH);
         //digitalWrite(chan_select, LOW);// Enable the Arduino channel
         digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
-        stepCounter = stepCounter + stepperDrive(step_speed); //go drive the stepper and update the stepcounter
+        stepCounter = stepCounter + stepperDrive(stepHighTime); //go drive the stepper and update the stepcounter
         Serial.print("Count = ");
         Serial.print(stepCounter);
         Serial.print("\t");
@@ -237,7 +246,7 @@ void loop()
 // microStepIncrements = # of microsteps to take before returning
 // Return:
 // microStepCnt = # of micro steps the motor was moved
-int stepperDrive(int microStepIncrement)
+int stepperDrive(int stepHighTime)
   {
    int microStepCnt =0;  // initialize the microstep counter         
    for (int z =1; z <= microStepIncrement; z++)
