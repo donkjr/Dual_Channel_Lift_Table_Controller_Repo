@@ -36,11 +36,14 @@
 //V3.2  
   // for speed redesigned the way the stepper is driven.  
   // step_speed now acts as a multiplier. The stepperIncrement() uses this value to control how many microsteps the controller is given for each joystick move. 
-
+//V4.0
+  // resedigned step control to keep the loop short
+  // fixed value for the step pulse (low part)
+  // variable value for the off (high) part of the pulse determines speed (time between pulses)
 
 //DEBUG 
 #define DEBUG       //V1.2 Comment this out for normal compile
-#define VERSION 3.2 //
+#define VERSION 4.0 //
 // CONTROL PANEL I/O
 #define slowLed 5   // Pin 5 connected to slow LED on panel
 #define medLed 6  // Pin 6 connected to med LED on panel
@@ -70,13 +73,14 @@
 
 // stepper variables
 
-//Speed increment constants the # of microsteps per call to stepperDrive
+//constants for the joystick switch speed selection
 #define HIGHSPEED 10 // high speed 
 #define MEDSPEED 5 // med speed
 #define LOWSPEED 1 // low speed
-#define HIGHDEADTIME 100 // off time (usec) for high speed
-#define MEDDEADTIME 1000 // off time (usec) for med speed
-#define LOWDEADTIME 10000 // off time (usec) for slow speed
+// Constants for the step pulse dead time which determines speed
+#define HIGHDEADTIME 10 // off time (usec) for high speed
+#define MEDDEADTIME 100 // off time (usec) for med speed
+#define LOWDEADTIME 1000 // off time (usec) for slow speed
 
 
 int step_speed = 1;  // step speeds are 10, 5, 1 whereas 10 is high and 1 is low
@@ -86,6 +90,10 @@ int stepLowTime = 10; //low time (usec) for the -PUL on stepper driver
 int stepHighTime = LOWDEADTIME; 
 int laststepCounter = 0; //keeps track of when the counter changes
 int stepCounter = 0;  // step counter
+
+//limit switch variables
+bool upperLimitReached = false;
+bool lowerLimitReached = false;
 
 int num;               // temp variable for blinking LED
 int stickPosition;    // the Y joystick value
@@ -127,7 +135,7 @@ void setup()
     testMode=true;            // if switch held during reset set test mode
     Serial.println("Test mode initiated");
   }  
-  homeTable();
+ // homeTable();
 }
 
 void loop() 
@@ -144,8 +152,8 @@ void loop()
       switch (step_speed) 
       {  // check current value of step_speed and change it
         case HIGHSPEED: //Fast speed
-          stepHighTime = HIGHDEADTIME;
-          //step_speed=LOWSPEED;  // If fast speed go to slow speed
+          stepHighTime = LOWDEADTIME;
+          step_speed=LOWSPEED;  // If fast speed go to slow speed
           #ifdef DEBUG //V1.2
             Serial.println("-------Slow Speed-------");
           #endif
@@ -155,7 +163,7 @@ void loop()
         break;
         case MEDSPEED: //med speed
           stepHighTime = HIGHDEADTIME;
-          //step_speed=HIGHSPEED;  // if med speed go to fast speed
+          step_speed=HIGHSPEED;  // if med speed go to fast speed
           #ifdef DEBUG
             Serial.println("-------Fast Speed-------");
           #endif
@@ -165,7 +173,7 @@ void loop()
         break;
         case LOWSPEED:  //slow speed
           stepHighTime = MEDDEADTIME; 
-         //step_speed=MEDSPEED;  // if slow speed go to medium speed
+          step_speed=MEDSPEED;  // if slow speed go to medium speed
           #ifdef DEBUG
             Serial.println("-------Medium Speed------");
           #endif
@@ -175,62 +183,57 @@ void loop()
         break;
       }
     }    
- // CHECK IF JOYSTICK IS PUSHED UP 
-  stickPosition = analogRead(Y_pin);  //read the joystick pot  
-  if (analogRead(Y_pin) > 712) 
-    {  //  If joystick is moved UP
-    if (!digitalRead(Limit01)) 
-      {  // check if up limit switch is activated
+ // -------------- CHECK IF JOYSTICK IS PUSHED UP ----------- 
+  if(digitalRead(Limit01))
+    {  //if the upper limit switch is not activated check for joystick UP movement 
+     digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
+     while(analogRead(Y_pin) >712 && digitalRead(Limit01))
+      { // send step pulses as long as the joystick is held up and the limit switch is not reached
+        // this section needs to stay minimal to enable high enough speed
+        digitalWrite(step_pin, LOW);
+        delayMicroseconds(stepPulse);
+        digitalWrite(step_pin, HIGH);
+        delayMicroseconds(stepHighTime); // is this needed
+      }
+     //put blink here...
+    if (!digitalRead(Limit01)&& !upperLimitReached) 
+      {  // check if up limit switch was activated with the up movement
       Serial.println("Lift at top");
       for (int i = 0; i <= 10; i++)
-        {//blink the fast led as a warning
+        {//blink the fast (upper) led as a warning
          digitalWrite (fastLed, num = num ^1);
          delay(500);
         }
-      restore_LED();     // put the led back to it previous state  
       }
-    else 
-      {  //  if limit switch is not activated, move motor clockwise  
-        //digitalWrite(test_pin,HIGH);
-        //digitalWrite(chan_select, LOW);// Enable the Arduino channel
-        digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
-        stepCounter = stepCounter + stepperDrive(stepHighTime); //go drive the stepper and update the stepcounter
-        Serial.print("Count = ");
-        Serial.print(stepCounter);
-        Serial.print("\t");
-        mmPosition = -1* (stepCounter/3200);
-        Serial.print(" Position (mm) = ");
-        Serial.println (mmPosition);
-       //digitalWrite(chan_select, HIGH); //reset the channel to smoothie
-       // digitalWrite(test_pin, LOW);
-      }        
-  }
-// CHECK TO SEE IF THE JOYSTICK IS PUSHED DOWN  
-    if (analogRead(Y_pin) < 312) 
-    {  // If joystick is moved DOWN
-      if (!digitalRead(Limit02)) 
-        {// check if lower limit switch is activated
-          Serial.println("Lift at bottom");  
-          for (int i = 0; i <= 10; i++)
-            {//blink the slow led as a warning
-              digitalWrite (slowLed, num = num^1);
-              delay(500);
-            } 
-          restore_LED();     // put the led back to it previous state  
-        }  
-      else 
-      {  //  if limit switch is not activated, move motor counter clockwise     
-    
-        digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
-        stepCounter = stepCounter - stepperDrive(step_speed); // go drive the stepper and update the stepcounter 
-        Serial.print("Count = ");
-        Serial.print(stepCounter);
-        Serial.print("\t");
-        mmPosition = (-1* stepCounter)/3200;
-        Serial.print(" Position (mm) = ");
-        Serial.println (mmPosition);   
-      }      
+      restore_LED();     // put the led back to it previous state 
     }
+
+
+//----------- CHECK TO SEE IF THE JOYSTICK IS PUSHED DOWN ----------------- 
+  if(digitalRead(Limit02))
+    {  //if the lower limit switch is not activated check for joystick down movement 
+    digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
+    while(analogRead(Y_pin) <312 && digitalRead(Limit02))
+    //while(analogRead(Y_pin) >712)
+      {
+        digitalWrite(step_pin, LOW);
+        delayMicroseconds(stepPulse);
+        digitalWrite(step_pin, HIGH);
+        delayMicroseconds(stepHighTime); // is this needed
+      } 
+   
+    if (!digitalRead(Limit02)&& !lowerLimitReached) 
+      {  // check if lower limit switch was activated during down movement
+      Serial.println("Lift at bottom");
+      for (int i = 0; i <= 10; i++)
+        {//blink the slow (lower) led as a warning
+         digitalWrite (slowLed, num = num ^1);
+         delay(500);
+        }     
+      }
+      restore_LED();     // put the led back to it previous state   
+    }
+  // Pulse an I/O pin to use as a scope loop sync
   digitalWrite(test_pin, LOW);
   delayMicroseconds(20);
   digitalWrite(test_pin, HIGH);
@@ -240,6 +243,8 @@ void loop()
 
 // ============================ FUNCTIONS ===========================
 
+
+/*
 ///------------------ stepperDrive()-------------------
 // Drive the stepper in increments of microStepIncrement before it returns.
 //Parameters:
@@ -249,7 +254,7 @@ void loop()
 int stepperDrive(int stepHighTime)
   {
    int microStepCnt =0;  // initialize the microstep counter         
-   for (int z =1; z <= microStepIncrement; z++)
+   for (int z =1; z <= microStepCnt; z++)
      { 
       digitalWrite(step_pin, LOW);
       delayMicroseconds(stepPulse);
@@ -261,6 +266,7 @@ int stepperDrive(int stepHighTime)
     return (microStepCnt);
   }
 
+*/
 /// ------------------HOME------
 void homeTable()
   {
