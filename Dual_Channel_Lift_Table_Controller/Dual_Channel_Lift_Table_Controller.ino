@@ -129,7 +129,7 @@ void setup()
    digitalWrite(medLed, LOW);
    digitalWrite(fastLed,LOW);  
    Serial.print("K40 Dual Channel Lift Controller V");
-   Serial.print(VERSION); 
+   Serial.println(VERSION); 
   if (!digitalRead(Joy_switch)) 
   {
     testMode=true;            // if switch held during reset set test mode
@@ -146,6 +146,7 @@ void loop()
   {// check if test mode was set in the startup
     test_Mode();        // go and run tests first
   }
+  
   if (!digitalRead(Joy_switch)) 
     {  //  If Joystick switch is clicked
       delay(500);  // delay for deboucing
@@ -237,6 +238,19 @@ void loop()
   digitalWrite(test_pin, LOW);
   delayMicroseconds(20);
   digitalWrite(test_pin, HIGH);
+
+// ----- Manage home positions ----
+
+  if(analogRead(X_pin) >712 && digitalRead(Limit01))
+  { 
+   homeTop(); 
+  }
+
+ if(analogRead(X_pin) <312 && digitalRead(Limit02))
+  { 
+   homeBottom(); 
+  }
+
 }//end Loop
 
 
@@ -244,47 +258,49 @@ void loop()
 // ============================ FUNCTIONS ===========================
 
 
-/*
-///------------------ stepperDrive()-------------------
-// Drive the stepper in increments of microStepIncrement before it returns.
-//Parameters:
-// microStepIncrements = # of microsteps to take before returning
-// Return:
-// microStepCnt = # of micro steps the motor was moved
-int stepperDrive(int stepHighTime)
-  {
-   int microStepCnt =0;  // initialize the microstep counter         
-   for (int z =1; z <= microStepCnt; z++)
-     { 
-      digitalWrite(step_pin, LOW);
-      delayMicroseconds(stepPulse);
-      digitalWrite(step_pin, HIGH);
-      delayMicroseconds(stepPulse); // is this needed
-     ++microStepCnt;                        //keep track of microsteps
-     }
-    //Serial.println(microStepCnt);
-    return (microStepCnt);
-  }
 
-*/
-/// ------------------HOME------
-void homeTable()
-  {
+/// ------------------ HOME ------
+void homeTop()
+ { 
   digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
-  while (digitalRead(Limit01))
-     { // step until the upper limit is reached (Limit = 0)
+  
+  while (digitalRead(Limit01) && digitalRead(Joy_switch))
+     { // step until the upper limit is reached (Limit = 0)or the Joystick is pushed in.
       digitalWrite(step_pin, LOW);
       delayMicroseconds(stepPulse);
       digitalWrite(step_pin, HIGH);
-      delayMicroseconds(stepPulse); // is this needed??? 
+      delayMicroseconds(stepHighTime); // is this needed??? 
      }
+  while(!digitalRead(Joy_switch))
+    {//wait here for Joy switch to go high. The Joy stick bounces alot
+    Serial.println("Joyswitch = LOW");
+    }
+  stepCounter = 0; // reset the position counter
+  Serial.println();
+  Serial.println("Table @ TOP or Stopped");
+  return;
+ }
+
+void homeBottom()
+  {
+  digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
+  
+  while (digitalRead(Limit02) && digitalRead(Joy_switch))
+     { // step until the lower limit is reached (Limit = 0), or the Joystick is pushed in.
+      digitalWrite(step_pin, LOW);
+      delayMicroseconds(stepPulse);
+      digitalWrite(step_pin, HIGH);
+      delayMicroseconds(stepHighTime); // is this needed??? 
+     }
+    while(!digitalRead(Joy_switch))
+    {//wait here for Joy switch to go high. The Joy stick bounces alot
+    Serial.println("Joyswitch = LOW");
+    }
     stepCounter = 0; // reset the position counter
     Serial.println();
-    Serial.println("Table @ Home Position");
+    Serial.println("Table @ BOTTOM or Stopped");
   return;
   }
-
-
 
 
 
