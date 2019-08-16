@@ -150,7 +150,7 @@ void loop()
   {// check if test mode was set in the startup
     test_Mode();        // go and run tests first
   }
-  
+// ------------- Set Speed Mode  ----------- 
   if (!digitalRead(Joy_switch)) 
     {  //  If Joystick switch is clicked
       while(!digitalRead(Joy_switch))
@@ -164,6 +164,10 @@ void loop()
           step_speed=LOWSPEED;  // If fast speed go to slow speed
           #ifdef DEBUG //V1.2
             Serial.println("-------Slow Speed-------");
+            Serial.print("Ratio: ");
+            Serial.print(stepPulse);
+            Serial.print("/");
+            Serial.println(stepHighTime);
           #endif
           digitalWrite(medLed, LOW);
           digitalWrite(fastLed,LOW);
@@ -173,7 +177,11 @@ void loop()
           stepHighTime = HIGHDEADTIME;
           step_speed=HIGHSPEED;  // if med speed go to fast speed
           #ifdef DEBUG
-            Serial.println("-------Fast Speed-------");
+            Serial.println("-------Fast Speed -------");
+            Serial.print("Ratio: ");
+            Serial.print(stepPulse);
+            Serial.print("/");
+            Serial.println(stepHighTime);
           #endif
           digitalWrite(slowLed, LOW);
           digitalWrite(medLed, LOW);
@@ -183,7 +191,11 @@ void loop()
           stepHighTime = MEDDEADTIME; 
           step_speed=MEDSPEED;  // if slow speed go to medium speed
           #ifdef DEBUG
-            Serial.println("-------Medium Speed------");
+            Serial.println("-------Medium Speed ------");
+            Serial.print("Ratio: ");
+            Serial.print(stepPulse);
+            Serial.print("/");
+            Serial.println(stepHighTime);
           #endif
           digitalWrite(slowLed, LOW);
           digitalWrite(fastLed,LOW);
@@ -251,11 +263,21 @@ void loop()
 
   if(analogRead(X_pin) >712 && digitalRead(Limit01))
   { 
+   Serial.println("Homing to TOP!");
+   Serial.print("Ratio: ");
+   Serial.print(stepPulse);
+   Serial.print("/");
+   Serial.println(stepHighTime);
    homeTop(); 
   }
 
  if(analogRead(X_pin) <312 && digitalRead(Limit02))
   { 
+   Serial.println("Homing to BOTTOM!");
+   Serial.print("Ratio: ");
+   Serial.print(stepPulse);
+   Serial.print("/");
+   Serial.println(stepHighTime);
    homeBottom(); 
   }
 
@@ -285,13 +307,18 @@ void homeTop()
   stepCounter = 0; // reset the position counter
   Serial.println();
   Serial.println("Table @ TOP or Stopped");
+  for (int i = 0; i <= 10; i++)     // make this a function
+        {//blink the high (upper) led as a warning
+         digitalWrite (fastLed, num = num ^1);
+         delay(500);
+        }     
+  restore_LED();
   return;
  }
 
 void homeBottom()
   {
-  digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise)
-  
+  digitalWrite(dir_pin, LOW);  // (HIGH = anti-clockwise / LOW = clockwise) 
   while (digitalRead(Limit02) && digitalRead(Joy_switch))
      { // step until the lower limit is reached (Limit = 0), or the Joystick is pushed in.
       digitalWrite(step_pin, LOW);
@@ -303,9 +330,15 @@ void homeBottom()
     {//wait here for Joy switch to go high. The Joy stick bounces alot
     //Serial.println("Joyswitch = LOW");
     }
-    stepCounter = 0; // reset the position counter
-    Serial.println();
-    Serial.println("Table @ BOTTOM or Stopped");
+  stepCounter = 0; // reset the position counter
+  Serial.println();
+  Serial.println("Table @ BOTTOM or Stopped");
+  for (int i = 0; i <= 10; i++)
+        {//blink the slow (lower) led as a warning
+         digitalWrite (slowLed, num = num ^1);
+         delay(500);
+        }     
+  restore_LED();
   return;
   }
 
