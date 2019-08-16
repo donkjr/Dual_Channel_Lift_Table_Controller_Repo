@@ -40,10 +40,14 @@
   // resedigned step control to keep the loop short
   // fixed value for the step pulse (low part)
   // variable value for the off (high) part of the pulse determines speed (time between pulses)
+// 4.1
+  // added home functions. Joystick left is home bottom, right is home top
+  // bug: table runs faster in high speed home-mode than in manual up/down mode 
+
 
 //DEBUG 
 #define DEBUG       //V1.2 Comment this out for normal compile
-#define VERSION 4.0 //
+#define VERSION 4.1 //
 // CONTROL PANEL I/O
 #define slowLed 5   // Pin 5 connected to slow LED on panel
 #define medLed 6  // Pin 6 connected to med LED on panel
@@ -149,7 +153,10 @@ void loop()
   
   if (!digitalRead(Joy_switch)) 
     {  //  If Joystick switch is clicked
-      delay(500);  // delay for deboucing
+      while(!digitalRead(Joy_switch))
+      {//wait here for Joy switch to go high. The Joy stick bounces alot
+      //Serial.println("Joyswitch = LOW");
+      }
       switch (step_speed) 
       {  // check current value of step_speed and change it
         case HIGHSPEED: //Fast speed
@@ -184,6 +191,7 @@ void loop()
         break;
       }
     }    
+  
  // -------------- CHECK IF JOYSTICK IS PUSHED UP ----------- 
   if(digitalRead(Limit01))
     {  //if the upper limit switch is not activated check for joystick UP movement 
@@ -197,7 +205,7 @@ void loop()
         delayMicroseconds(stepHighTime); // is this needed
       }
      //put blink here...
-    if (!digitalRead(Limit01)&& !upperLimitReached) 
+    if (!digitalRead(Limit01)) 
       {  // check if up limit switch was activated with the up movement
       Serial.println("Lift at top");
       for (int i = 0; i <= 10; i++)
@@ -223,7 +231,7 @@ void loop()
         delayMicroseconds(stepHighTime); // is this needed
       } 
    
-    if (!digitalRead(Limit02)&& !lowerLimitReached) 
+    if (!digitalRead(Limit02)) 
       {  // check if lower limit switch was activated during down movement
       Serial.println("Lift at bottom");
       for (int i = 0; i <= 10; i++)
@@ -263,7 +271,6 @@ void loop()
 void homeTop()
  { 
   digitalWrite(dir_pin, HIGH);  // (HIGH = anti-clockwise / LOW = clockwise)
-  
   while (digitalRead(Limit01) && digitalRead(Joy_switch))
      { // step until the upper limit is reached (Limit = 0)or the Joystick is pushed in.
       digitalWrite(step_pin, LOW);
@@ -273,7 +280,7 @@ void homeTop()
      }
   while(!digitalRead(Joy_switch))
     {//wait here for Joy switch to go high. The Joy stick bounces alot
-    Serial.println("Joyswitch = LOW");
+    //Serial.println("Joyswitch = LOW");
     }
   stepCounter = 0; // reset the position counter
   Serial.println();
@@ -294,7 +301,7 @@ void homeBottom()
      }
     while(!digitalRead(Joy_switch))
     {//wait here for Joy switch to go high. The Joy stick bounces alot
-    Serial.println("Joyswitch = LOW");
+    //Serial.println("Joyswitch = LOW");
     }
     stepCounter = 0; // reset the position counter
     Serial.println();
